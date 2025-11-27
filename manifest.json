@@ -3,7 +3,7 @@
   "name": "BGM on Note Open",
   "version": "1.0.0",
   "minAppVersion": "1.5.0",
-  "author": "Your Name",
+  "author": "Tiancheng Tan",
   "description": "Play background music when opening a note based on frontmatter BGM property.",
   "main": "main.js"
 }

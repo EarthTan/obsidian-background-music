@@ -43,6 +43,10 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
     async tryPlayForFile(file) {
         const metadata = this.app.metadataCache.getFileCache(file);
         if (!metadata || !metadata.frontmatter) {
+            // 保存当前播放进度再停止音乐
+            if (this.audio && this.currentSrc) {
+                this.audioTimes.set(this.currentSrc, this.audio.currentTime);
+            }
             await this.stopAudio();
             return;
         }
@@ -50,6 +54,10 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
         // Support "BGM" or "bgm"
         let bgm = metadata.frontmatter["BGM"] || metadata.frontmatter["bgm"];
         if (!bgm) {
+            // 保存当前播放进度再停止音乐
+            if (this.audio && this.currentSrc) {
+                this.audioTimes.set(this.currentSrc, this.audio.currentTime);
+            }
             await this.stopAudio();
             return;
         }
@@ -70,6 +78,10 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
         let audioSrc = await this.resolvePath(bgm, file);
         if (!audioSrc) {
             console.warn("Cannot resolve BGM:", bgm);
+            // 保存当前播放进度再停止音乐
+            if (this.audio && this.currentSrc) {
+                this.audioTimes.set(this.currentSrc, this.audio.currentTime);
+            }
             await this.stopAudio();
             return;
         }

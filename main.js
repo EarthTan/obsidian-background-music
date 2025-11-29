@@ -58,6 +58,11 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
         if (typeof volume === "string") {
             volume = parseFloat(volume);
         }
+        // Support 1-100 range (for "蠢货" users like you 😉)
+        if (volume > 1 && volume <= 100) {
+            volume = volume / 100; // Convert to 0-1 range
+            console.log(`Converted loudness from ${metadata.frontmatter["loudness"]} to ${volume}`);
+        }
         // Ensure volume is valid number between 0 and 1
         volume = Math.min(Math.max(volume || 0.9, 0), 1);
 

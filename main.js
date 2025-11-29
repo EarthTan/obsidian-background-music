@@ -10,10 +10,13 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
         super(app, manifest);
 
         this.audio = null;
+        this.audioContext = null;
+        this.gainNode = null;
+        this.source = null;
         this.currentSrc = "";
-        this.currentTime = 0; // save playback progress
+        this.audioTimes = new Map(); // Save playback progress for each file
         this.initialPlay = true; // first open flag
-        this.fadeInterval = null;
+        this.currentVolume = 0.9; // Track current volume for smooth transitions
     }
 
     async onload() {
@@ -30,6 +33,10 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
     onunload() {
         console.log("BGM-on-open plugin unloaded.");
         this.stopAudio(true);
+        // Clean up audio context
+        if (this.audioContext && this.audioContext.state !== 'closed') {
+            this.audioContext.close();
+        }
     }
 
     async tryPlayForFile(file) {
@@ -46,10 +53,13 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
             return;
         }
 
+        // Handle volume with better error tolerance
         let volume = metadata.frontmatter["loudness"];
-        if (typeof volume !== "number" || volume < 0 || volume > 1) {
-            volume = 0.9; // default volume
+        if (typeof volume === "string") {
+            volume = parseFloat(volume);
         }
+        // Ensure volume is valid number between 0 and 1
+        volume = Math.min(Math.max(volume || 0.9, 0), 1);
 
         let audioSrc = await this.resolvePath(bgm, file);
         if (!audioSrc) {
@@ -58,9 +68,9 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
             return;
         }
 
-        // If switching to a different file, save progress of previous
+        // Save current playback progress before switching
         if (this.audio && this.currentSrc !== audioSrc) {
-            this.currentTime = this.audio.currentTime;
+            this.audioTimes.set(this.currentSrc, this.audio.currentTime);
         }
 
         this.playAudio(audioSrc, volume);
@@ -69,7 +79,7 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
     async resolvePath(raw, currentFile) {
         raw = raw.trim();
 
-        // URL
+        // URL - direct return
         if (raw.startsWith("http://") || raw.startsWith("https://")) {
             return raw;
         }
@@ -83,7 +93,7 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
             return null;
         }
 
-        // Local relative path
+        // Local relative path - normalize and resolve
         const baseFolder = currentFile.parent.path;
         const fullPath = normalizePath(baseFolder + "/" + raw);
         const tfile = this.app.vault.getAbstractFileByPath(fullPath);
@@ -106,68 +116,110 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
             this.audio.pause();
             this.audio = null;
             this.currentSrc = "";
+            if (this.audioContext && this.audioContext.state !== 'closed') {
+                this.audioContext.close();
+            }
+            this.audioContext = null;
+            this.gainNode = null;
+            this.source = null;
             return;
         }
 
-        // Fade out before stopping
-        this.fadeAudio(this.audio.volume, 0, 300, () => {
+        // Fade out before stopping using Web Audio API
+        this.fadeAudio(this.currentVolume, 0, 0.3, () => {
             this.audio.pause();
             this.audio = null;
             this.currentSrc = "";
+            if (this.audioContext && this.audioContext.state !== 'closed') {
+                this.audioContext.close();
+            }
+            this.audioContext = null;
+            this.gainNode = null;
+            this.source = null;
         });
     }
 
     playAudio(src, volume = 0.9) {
-        if (this.currentSrc === src && this.audio) return; // same track
-
-        // Stop current with fade
-        if (this.audio) {
-            this.stopAudio();
+        // Initialize audio object if not exists
+        if (!this.audio) {
+            this.audio = new Audio();
+            this.audio.loop = true;
         }
 
-        this.audio = new Audio(src);
-        this.audio.loop = true;
-        this.audio.volume = this.initialPlay ? volume : 0; // fade in if not first open
-        if (!this.initialPlay && this.currentTime > 0) {
-            this.audio.currentTime = this.currentTime;
+        // Get saved playback time for this file
+        const savedTime = this.audioTimes.get(src) || 0;
+
+        // If same track is already playing, just update volume if needed
+        if (this.currentSrc === src) {
+            if (Math.abs(this.currentVolume - volume) > 0.01) {
+                this.fadeAudio(this.currentVolume, volume, 0.2);
+            }
+            return;
         }
 
+        // Different track - update source and play
+        if (this.currentSrc !== src) {
+            this.audio.src = src;
+            this.audio.currentTime = savedTime;
+        }
+
+        // Initialize Web Audio API if not exists
+        if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            this.gainNode = this.audioContext.createGain();
+            this.source = this.audioContext.createMediaElementSource(this.audio);
+            this.source.connect(this.gainNode);
+            this.gainNode.connect(this.audioContext.destination);
+        }
+
+        // Resume audio context if suspended (browser autoplay policy)
+        if (this.audioContext.state === 'suspended') {
+            this.audioContext.resume();
+        }
+
+        // Set initial volume using Web Audio API for sample-level precision
+        if (this.initialPlay) {
+            // First play - set volume directly without fade
+            this.gainNode.gain.setValueAtTime(volume, this.audioContext.currentTime);
+            this.currentVolume = volume;
+        } else {
+            // Subsequent plays - start at 0 and fade in
+            this.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+            this.currentVolume = 0;
+        }
+
+        // Play audio
         this.audio.play().catch(err => console.error("Audio play error:", err));
 
+        // Fade in if not first play
         if (!this.initialPlay) {
-            this.fadeAudio(0, volume, 300); // fade in
+            this.fadeAudio(0, volume, 0.3);
         }
 
         this.currentSrc = src;
         this.initialPlay = false;
-        this.currentTime = 0;
     }
 
-    fadeAudio(from, to, duration = 500, callback = null) {
-        if (!this.audio) return;
-        if (this.fadeInterval) clearInterval(this.fadeInterval);
+    fadeAudio(from, to, duration = 0.5, callback = null) {
+        if (!this.audioContext || !this.gainNode) return;
 
-        const stepTime = 50;
-        const steps = duration / stepTime;
-        const delta = (to - from) / steps;
-        let currentStep = 0;
+        const currentTime = this.audioContext.currentTime;
 
-        this.audio.volume = from;
+        // Cancel any existing scheduled changes
+        this.gainNode.gain.cancelScheduledValues(currentTime);
 
-        this.fadeInterval = setInterval(() => {
-            if (!this.audio) {
-                clearInterval(this.fadeInterval);
-                return;
-            }
-            currentStep++;
-            let newVol = this.audio.volume + delta;
-            newVol = Math.max(0, Math.min(1, newVol));
-            this.audio.volume = newVol;
+        // Set current value
+        this.gainNode.gain.setValueAtTime(from, currentTime);
 
-            if (currentStep >= steps) {
-                clearInterval(this.fadeInterval);
-                if (callback) callback();
-            }
-        }, stepTime);
+        // Schedule linear ramp to target value
+        this.gainNode.gain.linearRampToValueAtTime(to, currentTime + duration);
+
+        // Update current volume tracking
+        this.currentVolume = to;
+
+        // Set up callback if provided
+        if (callback) {
+            setTimeout(callback, duration * 1000);
+        }
     }
 };

@@ -1,128 +1,84 @@
-# Background Music Player
+# Obsidian Background Music Player
 
-A simple Obsidian plugin that automatically plays background music when you open a note. You can choose different background music for each note.
+A professional Obsidian plugin that automatically plays background music when opening notes. Each note can have different background music with intelligent volume control and professional-grade audio switching experience.
 
-## Features
+## 🌍 Language Versions
 
-- Set different background music for each note
-- Support for local files and online URLs
-- Automatic playback and stopping of music
-- Simple metadata configuration
+- **[中文文档](README_CN.md)** - 中文版本说明文档
+- **[English Documentation](README_EN.md)** - English version documentation
 
-## Installation
+## ✨ Core Features
 
-### Install from Community Plugins (Recommended)
+### 🎵 Professional Audio Experience
+- **Noise-free fading** - Uses Web Audio API for sample-level smooth transitions
+- **Intelligent volume control** - Supports both 0-1 and 1-100 volume ranges
+- **Playback progress saving** - Automatically saves and restores playback position when switching notes
+- **Loop playback** - Background music automatically loops
+
+### 🔄 Smart Switching Management
+- **Sequential audio switching** - Waits for previous music to completely fade out before playing new music
+- **Pane awareness** - Automatically stops music when the last pane is closed
+- **No race conditions** - Promise-based audio operations ensure switching stability
+
+### 📁 Flexible Music Source Support
+- **Local files** - Supports relative and absolute paths
+- **Wiki links** - Uses `[[music-file.mp3]]` format
+- **Online URLs** - Supports HTTP/HTTPS online music
+- **Multiple formats** - MP3, WAV, OGG, AAC and other browser-supported formats
+
+## 🚀 Quick Start
+
+### Installation
 
 1. Open Obsidian Settings
 2. Go to "Community Plugins" tab
 3. Click "Browse" button
 4. Search for "Background Music Player"
-5. Click Install
-6. Enable the plugin
+5. Click Install and Enable
 
-### Manual Installation
+### Basic Usage
 
-1. Download the latest version of the plugin files
-2. Extract to your Obsidian vault's plugins folder: `.obsidian/plugins/obsidian-backgroud-music/`
-3. Reload Obsidian
-4. Enable "Background Music Player" in Community Plugins
-
-## Usage
-
-### Adding Background Music to a Note
-
-Add a `bgm` or `BGM` field in the note's metadata section to specify the music file path or URL:
-
-```yaml
----
-bgm: /path/to/music.mp3
----
-```
-
-### Supported Formats
-
-1. **Local absolute path**: `/path/to/music.mp3`
-2. **Obsidian internal link**: `[[music.mp3]]`
-3. **Online URL**: `{{https://example.com/music.mp3}}`
-
-### Examples
+Add background music to your notes using frontmatter:
 
 ```yaml
 ---
 title: My Note
-bgm: [[relaxing-music.mp3]]
+bgm: [[music.mp3]]
+loudness: 0.5
 ---
 ```
 
-Or using online music:
+### Volume Control Examples
 
 ```yaml
 ---
-title: Study Notes
-bgm: {{https://example.com/study-music.mp3}}
+bgm: [[music.mp3]]
+loudness: 0.3    # 0-1 range
+---
+
+---
+bgm: [[music.mp3]]  
+loudness: 50     # 1-100 range (auto-converted to 0.5)
 ---
 ```
 
-## Supported Audio Formats
+## 📖 Detailed Documentation
 
-- MP3
-- WAV
-- OGG
-- AAC
-- Other browser-supported audio formats
+For complete documentation, please refer to the language-specific versions:
 
-## Configuration Options
+- **[中文完整文档](README_CN.md)** - 包含详细的使用说明、技术特性和故障排除
+- **[English Full Documentation](README_EN.md)** - Complete usage guide, technical features, and troubleshooting
 
-Currently, the plugin provides the following configuration options:
+## 🔧 Technical Highlights
 
-- **Auto-play**: Automatically play music when opening a note
-- **Loop**: Automatically restart music when it ends
-- **Volume Control**: Set default volume level
+- **Web Audio API** - Professional audio processing
+- **GainNode Control** - Sample-level volume fading
+- **Promise-based Operations** - Race condition free switching
+- **Smart State Management** - Intelligent audio lifecycle
 
-## Troubleshooting
+## 📄 License
 
-### Music Won't Play
-
-1. **Check file path**: Ensure the music file path is correct and the file exists
-2. **Check file permissions**: Ensure Obsidian has permission to access the music file
-3. **Check network connection**: If using online URL, ensure network connection is working
-4. **Check audio format**: Ensure the audio format is supported by the browser
-
-### Music Playback Issues
-
-1. **Volume issues**: Check system volume and browser volume settings
-2. **Playback delay**: Large audio files may require loading time
-3. **Multiple tabs issue**: Opening multiple notes with music in different tabs may cause conflicts
-
-## Development Information
-
-### Building the Plugin
-
-```bash
-npm install
-npm run build
-```
-
-### Development Mode
-
-```bash
-npm run dev
-```
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-## Contributing
-
-Issues and pull requests are welcome!
-
-## Changelog
-
-### v1.0.0
-- Initial release
-- Support for local files and online URLs
-- Auto-play functionality
+MIT License - See [LICENSE](LICENSE) file for details.
 
 ---
 

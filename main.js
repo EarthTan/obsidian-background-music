@@ -32,6 +32,7 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
 
     onunload() {
         console.log("BGM-on-open plugin unloaded.");
+        // Use fast stop for unload (no need to wait for fade)
         this.stopAudio(true);
         // Clean up audio context
         if (this.audioContext && this.audioContext.state !== 'closed') {
@@ -42,14 +43,14 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
     async tryPlayForFile(file) {
         const metadata = this.app.metadataCache.getFileCache(file);
         if (!metadata || !metadata.frontmatter) {
-            this.stopAudio();
+            await this.stopAudio();
             return;
         }
 
         // Support "BGM" or "bgm"
         let bgm = metadata.frontmatter["BGM"] || metadata.frontmatter["bgm"];
         if (!bgm) {
-            this.stopAudio();
+            await this.stopAudio();
             return;
         }
 
@@ -69,13 +70,14 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
         let audioSrc = await this.resolvePath(bgm, file);
         if (!audioSrc) {
             console.warn("Cannot resolve BGM:", bgm);
-            this.stopAudio();
+            await this.stopAudio();
             return;
         }
 
         // Save current playback progress before switching
         if (this.audio && this.currentSrc !== audioSrc) {
             this.audioTimes.set(this.currentSrc, this.audio.currentTime);
+            await this.stopAudio();  // ⚡ 等待 fade-out 完成再播放新音频
         }
 
         this.playAudio(audioSrc, volume);
@@ -115,32 +117,35 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
     }
 
     stopAudio(fast = false) {
-        if (!this.audio) return;
+        return new Promise(resolve => {
+            if (!this.audio) return resolve();
 
-        if (fast) {
-            this.audio.pause();
-            this.audio = null;
-            this.currentSrc = "";
-            if (this.audioContext && this.audioContext.state !== 'closed') {
-                this.audioContext.close();
+            if (fast) {
+                this.audio.pause();
+                this.audio = null;
+                this.currentSrc = "";
+                if (this.audioContext && this.audioContext.state !== 'closed') {
+                    this.audioContext.close();
+                }
+                this.audioContext = null;
+                this.gainNode = null;
+                this.source = null;
+                return resolve();
             }
-            this.audioContext = null;
-            this.gainNode = null;
-            this.source = null;
-            return;
-        }
 
-        // Fade out before stopping using Web Audio API
-        this.fadeAudio(this.currentVolume, 0, 0.3, () => {
-            this.audio.pause();
-            this.audio = null;
-            this.currentSrc = "";
-            if (this.audioContext && this.audioContext.state !== 'closed') {
-                this.audioContext.close();
-            }
-            this.audioContext = null;
-            this.gainNode = null;
-            this.source = null;
+            // Fade out before stopping using Web Audio API
+            this.fadeAudio(this.currentVolume, 0, 0.3, () => {
+                this.audio.pause();
+                this.audio = null;
+                this.currentSrc = "";
+                if (this.audioContext && this.audioContext.state !== 'closed') {
+                    this.audioContext.close();
+                }
+                this.audioContext = null;
+                this.gainNode = null;
+                this.source = null;
+                resolve();
+            });
         });
     }
 

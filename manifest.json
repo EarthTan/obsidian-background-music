@@ -1,9 +1,9 @@
 {
-  "id": "bgm-on-open",
-  "name": "BGM on Note Open",
-  "version": "5.0.1",
+  "id": "background-music",
+  "name": "Background Music",
+  "version": "6.0.0",
   "minAppVersion": "1.5.0",
   "author": "Tiancheng Tan",
-  "description": "Play background music when opening a note based on frontmatter BGM property.",
+  "description": "Play background music when opening a note based on frontmatter BGM property. Now with Global BGM support and Settings Tab.",
   "main": "main.js"
 }

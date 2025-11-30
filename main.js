@@ -139,6 +139,50 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
         if (this.settings.enableGlobalBGM && this.settings.globalBGMSource) {
             await this.playGlobalBGM();
         }
+
+        // --- Add status bar volume slider ---
+        this.volumeSliderEl = this.addStatusBarItem();
+        this.volumeSliderEl.style.display = "flex";
+        this.volumeSliderEl.style.alignItems = "center";
+        this.volumeSliderEl.style.padding = "0 6px";
+
+        this.volumeSliderInput = document.createElement("input");
+        this.volumeSliderInput.type = "range";
+        this.volumeSliderInput.min = "0";
+        this.volumeSliderInput.max = "1";
+        this.volumeSliderInput.step = "0.01";
+        this.volumeSliderInput.value = this.settings.globalBGMLoudness || 0.8;
+        this.volumeSliderInput.style.width = "100px";
+        this.volumeSliderInput.style.cursor = "pointer";
+
+        this.volumeSliderEl.appendChild(this.volumeSliderInput);
+
+        // Change volume without restarting playback
+        this.volumeSliderInput.addEventListener("input", (evt) => {
+            const v = parseFloat(evt.target.value);
+
+            // Save new global volume to settings
+            this.settings.globalBGMLoudness = v;
+            this.saveSettings();
+
+            // Apply volume to NOTE BGM if playing
+            if (this.noteGainNode) {
+                this.noteGainNode.gain.setValueAtTime(
+                    v,
+                    this.noteAudioContext.currentTime
+                );
+                this.noteCurrentVolume = v;
+            }
+
+            // Apply volume to GLOBAL BGM if playing
+            if (this.globalGainNode) {
+                this.globalGainNode.gain.setValueAtTime(
+                    v,
+                    this.globalAudioContext.currentTime
+                );
+                this.globalCurrentVolume = v;
+            }
+        });
     }
 
     async onunload() {
@@ -337,9 +381,10 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
 
         // If same track is already playing, just update volume if needed
         if (this.noteCurrentSrc === src) {
-            if (Math.abs(this.noteCurrentVolume - volume) > 0.01) {
-                this.fadeAudio('note', this.noteCurrentVolume, volume, 0.2);
-            }
+            // Commented out to prevent fade when volume changes via slider
+            // if (Math.abs(this.noteCurrentVolume - volume) > 0.01) {
+            //     this.fadeAudio('note', this.noteCurrentVolume, volume, 0.2);
+            // }
             return;
         }
 
@@ -384,6 +429,11 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
 
         this.noteCurrentSrc = src;
         this.noteInitialPlay = false;
+
+        // Update slider to match current volume
+        if (this.volumeSliderInput) {
+            this.volumeSliderInput.value = volume;
+        }
     }
 
     // Global Audio Methods
@@ -482,9 +532,10 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
 
         // If same track is already playing, just update volume if needed
         if (this.globalCurrentSrc === src) {
-            if (Math.abs(this.globalCurrentVolume - volume) > 0.01) {
-                this.fadeAudio('global', this.globalCurrentVolume, volume, 0.2);
-            }
+            // Commented out to prevent fade when volume changes via slider
+            // if (Math.abs(this.globalCurrentVolume - volume) > 0.01) {
+            //     this.fadeAudio('global', this.globalCurrentVolume, volume, 0.2);
+            // }
             return;
         }
 
@@ -529,6 +580,11 @@ module.exports = class BGMOnOpenPlugin extends Plugin {
 
         this.globalCurrentSrc = src;
         this.globalInitialPlay = false;
+
+        // Update slider to match current volume
+        if (this.volumeSliderInput) {
+            this.volumeSliderInput.value = volume;
+        }
     }
 
     // Shared fade audio function
